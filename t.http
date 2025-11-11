@@ -1,0 +1,5 @@
+GET https://asiot.k8s.labs.itmo.loc/search?query=serde&limit=3
+
+###
+POST https://asiot.k8s.labs.itmo.loc/cache/flush
+1

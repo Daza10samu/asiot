@@ -1,0 +1,25 @@
+apiVersion: v2
+name: asiot
+description: Helm chart for deploying the ASIOT FastAPI app with Redis/Qdrant integration
+
+# Helm v3 application chart
+# Version of this chart (semantic versioning)
+version: 0.1.0
+# Version of the application contained in this chart
+appVersion: "1.0.0"
+
+type: application
+
+keywords:
+  - fastapi
+  - redis
+  - qdrant
+  - harbor
+  - asiot
+
+home: https://harbor.k8s.labs.itmo.loc
+sources:
+  - https://harbor.k8s.labs.itmo.loc/public/asiot-second-lab
+maintainers:
+  - name: asiot-team
+    email: devnull@example.com

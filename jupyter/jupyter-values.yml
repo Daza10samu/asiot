@@ -1,0 +1,63 @@
+hub:
+  networkPolicy:
+    enabled: false
+  config:
+    JupyterHub:
+      authenticator_class: dummy
+    DummyAuthenticator:
+      password: "admin"
+
+  extraConfig:
+    admin: |
+      c.Authenticator.admin_users = {'admin'}
+      c.Authenticator.allow_all = True
+
+ingress:
+  enabled: true
+  ingressClassName: public
+  hosts:
+    - jupyter.k8s.labs.itmo.loc
+  tls:
+    - hosts:
+        - jupyter.k8s.labs.itmo.loc
+      secretName: labs-itmo-cert
+
+singleuser:
+  networkPolicy:
+    enabled: false
+
+  image:
+    name: jupyter/scipy-notebook
+    tag: latest
+
+  extraEnv:
+    MLFLOW_TRACKING_URI: "https://mlflow.labs.itmo.loc"
+#    REQUESTS_CA_BUNDLE: "/etc/ssl/certs/custom-ca.crt"
+    SSL_CERT_FILE: "/etc/ssl/certs/custom-ca.crt"
+#    CURL_CA_BUNDLE: "/etc/ssl/certs/custom-ca.crt"
+
+  storage:
+    extraVolumes:
+      - name: ca-cert
+        configMap:
+          name: labs-itmo-ca
+    extraVolumeMounts:
+      - name: ca-cert
+        mountPath: /etc/ssl/certs/custom-ca.crt
+        subPath: ca.crt
+        readOnly: true
+
+  lifecycleHooks:
+    postStart:
+      exec:
+        command:
+          - "/bin/sh"
+          - "-c"
+          - |
+            cat /etc/ssl/certs/custom-ca.crt >> /opt/conda/lib/python3.11/site-packages/certifi/cacert.pem
+
+
+proxy:
+  chp:
+    networkPolicy:
+      enabled: false

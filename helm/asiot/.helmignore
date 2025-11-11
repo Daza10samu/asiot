@@ -1,0 +1,25 @@
+# Patterns to ignore when packaging Helm charts.
+# This supports shell glob matching, relative path matching, and
+# negation (prefixed with !). Only one pattern per line.
+
+# Common VCS dirs
+.git/
+.hg/
+.svn/
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Tests, docs, and local files not needed in the chart package
+charts/
+ci/
+tests/
+docs/
+README.md
