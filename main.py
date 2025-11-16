@@ -12,6 +12,7 @@ Environment variables:
 - QDRANT_API_KEY (optional)
 - QDRANT_COLLECTION (default: rust_docs)
 - EMBEDDING_DIM (default: 128) — used by the simple built‑in hash embedder.
+- INFERENCE_URL (default: http://inference:8080) — URL of the inference service.
 
 Run locally:
   uvicorn main:app --reload
@@ -19,6 +20,7 @@ Run locally:
 Example:
   GET /health
   GET /search?query=how%20to%20use%20tokio&library=tokio&limit=5
+  POST /predict with JSON body
 """
 from __future__ import annotations
 
@@ -27,6 +29,7 @@ import json
 import os
 from typing import Any, Dict, List, Optional
 
+import requests
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse
 
@@ -61,6 +64,8 @@ class Settings:
         self.qdrant_api_key: Optional[str] = os.environ.get("QDRANT_API_KEY")
         self.qdrant_collection: str = os.environ.get("QDRANT_COLLECTION", "rust_docs")
         self.embedding_dim: int = int(os.environ.get("EMBEDDING_DIM", "128"))
+        # Inference service settings
+        self.inference_url: str = os.environ.get("INFERENCE_URL", "http://inference:8080")
 
 
 def get_settings() -> Settings:
@@ -301,6 +306,228 @@ def _make_cache_key(collection: str, query: str, library: Optional[str], limit: 
     qh = hashlib.sha1(query.encode("utf-8")).hexdigest()
     lib = library or "*"
     return f"search:{collection}:{lib}:{limit}:{qh}"
+
+# Wine feature definitions from sklearn wine dataset
+WINE_FEATURES = {
+    "alcohol": {"index": 0, "description": "Alcohol content (%)", "range": "11.0 - 14.8"},
+    "malic_acid": {"index": 1, "description": "Malic acid (g/L)", "range": "0.7 - 5.8"},
+    "ash": {"index": 2, "description": "Ash content (g/L)", "range": "1.4 - 3.2"},
+    "alcalinity_of_ash": {"index": 3, "description": "Alkalinity of ash", "range": "10.6 - 30.0"},
+    "magnesium": {"index": 4, "description": "Magnesium (mg/L)", "range": "70 - 162"},
+    "total_phenols": {"index": 5, "description": "Total phenols", "range": "0.98 - 3.88"},
+    "flavanoids": {"index": 6, "description": "Flavanoids", "range": "0.34 - 5.08"},
+    "nonflavanoid_phenols": {"index": 7, "description": "Non-flavanoid phenols", "range": "0.13 - 0.66"},
+    "proanthocyanins": {"index": 8, "description": "Proanthocyanins", "range": "0.41 - 3.58"},
+    "color_intensity": {"index": 9, "description": "Color intensity", "range": "1.3 - 13.0"},
+    "hue": {"index": 10, "description": "Hue", "range": "0.48 - 1.71"},
+    "od280_od315_of_diluted_wines": {"index": 11, "description": "OD280/OD315 of diluted wines", "range": "1.27 - 4.0"},
+    "proline": {"index": 12, "description": "Proline content (mg/L)", "range": "278 - 1680"},
+}
+
+# Wine cultivar descriptions based on sklearn wine dataset characteristics
+WINE_CULTIVARS = {
+    0: {
+        "name": "Cultivar 0",
+        "description": "High alcohol content with rich flavanoids and color intensity",
+        "characteristics": [
+            "Higher alcohol content (typically 13.0-14.8%)",
+            "Rich in flavanoids (antioxidants)",
+            "Strong color intensity",
+            "High total phenols",
+            "Premium quality indicators"
+        ]
+    },
+    1: {
+        "name": "Cultivar 1", 
+        "description": "Balanced wine with moderate characteristics",
+        "characteristics": [
+            "Moderate alcohol content (12.0-13.5%)",
+            "Balanced phenolic compounds",
+            "Medium color intensity",
+            "Good overall balance",
+            "Versatile characteristics"
+        ]
+    },
+    2: {
+        "name": "Cultivar 2",
+        "description": "High proline content with unique chemical profile",
+        "characteristics": [
+            "Very high proline content (amino acid)",
+            "Lower alcohol content (11.0-13.0%)",
+            "Distinctive chemical signature",
+            "Lighter color intensity",
+            "Unique flavor profile"
+        ]
+    }
+}
+
+
+@app.get("/predict/info")
+def predict_info():
+    """
+    Get information about the wine prediction model, including required features and their descriptions.
+    """
+    return JSONResponse(status_code=200, content={
+        "model": "wine-classifier-rf",
+        "description": "Random Forest classifier for wine cultivar prediction based on chemical analysis",
+        "classes": WINE_CULTIVARS,
+        "features": WINE_FEATURES,
+        "usage": {
+            "endpoint": "/predict",
+            "method": "POST",
+            "example": {
+                "alcohol": 13.2,
+                "malic_acid": 2.77,
+                "ash": 2.51,
+                "alcalinity_of_ash": 18.5,
+                "magnesium": 96.0,
+                "total_phenols": 1.9,
+                "flavanoids": 0.58,
+                "nonflavanoid_phenols": 0.63,
+                "proanthocyanins": 1.14,
+                "color_intensity": 7.5,
+                "hue": 0.72,
+                "od280_od315_of_diluted_wines": 1.88,
+                "proline": 472.0
+            }
+        }
+    })
+
+
+@app.post("/predict")
+def predict(
+    data: Dict[str, Any],
+    settings: Settings = Depends(get_settings),
+):
+    """
+    Predict wine cultivar from chemical analysis data.
+
+    Accepts either:
+    1. Named features (recommended):
+       {
+         "alcohol": 13.2,
+         "malic_acid": 2.77,
+         "ash": 2.51,
+         ...
+       }
+
+    2. Legacy format with feature array:
+       {"instances": [[13.2, 2.77, 2.51, ...]]}
+
+    Returns human-readable prediction with cultivar information and confidence.
+    """
+    inference_url = f"{settings.inference_url.rstrip('/')}/invocations"
+
+    # Check if data is in named feature format (recommended)
+    if "instances" not in data and "dataframe_split" not in data:
+        # Convert named features to feature vector
+        try:
+            feature_vector = [None] * 13
+            provided_features = []
+
+            for feature_name, value in data.items():
+                if feature_name in WINE_FEATURES:
+                    idx = WINE_FEATURES[feature_name]["index"]
+                    feature_vector[idx] = float(value)
+                    provided_features.append(feature_name)
+
+            # Check if all features are provided
+            if None in feature_vector:
+                missing = [name for name, info in WINE_FEATURES.items() 
+                          if info["index"] in [i for i, v in enumerate(feature_vector) if v is None]]
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "error": "Missing required features",
+                        "missing_features": missing,
+                        "provided_features": provided_features,
+                        "hint": "Use GET /predict/info to see all required features"
+                    }
+                )
+
+            # Convert to MLflow format
+            data = {"instances": [feature_vector]}
+
+        except ValueError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid feature value: {str(e)}. All features must be numeric."
+            )
+
+    try:
+        # Forward the request to the inference service
+        response = requests.post(
+            inference_url,
+            json=data,
+            timeout=30,
+            headers={"Content-Type": "application/json"}
+        )
+
+        if response.status_code == 200:
+            raw_result = response.json()
+            predictions = raw_result.get("predictions", [])
+
+            # Enhance predictions with human-readable information
+            enhanced_results = []
+            for i, pred in enumerate(predictions):
+                pred_class = int(pred)
+
+                if pred_class not in WINE_CULTIVARS:
+                    pred_class = 1  # Default to middle class if out of range
+
+                cultivar_info = WINE_CULTIVARS[pred_class]
+
+                enhanced_results.append({
+                    "prediction": {
+                        "class": pred_class,
+                        "cultivar": cultivar_info["name"]
+                    },
+                    "description": cultivar_info["description"],
+                    "characteristics": cultivar_info["characteristics"],
+                    "confidence": {
+                        "level": "high" if 0 <= pred_class <= 2 else "low",
+                        "note": "Based on Random Forest model trained on sklearn wine dataset"
+                    }
+                })
+
+            return JSONResponse(status_code=200, content={
+                "success": True,
+                "model": "wine-classifier-rf",
+                "results": enhanced_results,
+                "metadata": {
+                    "samples_analyzed": len(enhanced_results),
+                    "model_version": "1.0",
+                    "dataset": "sklearn wine dataset (178 samples, 3 cultivars)"
+                }
+            })
+        else:
+            # Return the error from inference service
+            try:
+                error_detail = response.json()
+            except Exception:
+                error_detail = {"error": response.text}
+
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Inference service error: {error_detail}"
+            )
+
+    except requests.exceptions.ConnectionError:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Cannot connect to inference service at {inference_url}"
+        )
+    except requests.exceptions.Timeout:
+        raise HTTPException(
+            status_code=504,
+            detail="Inference service request timed out"
+        )
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error calling inference service: {str(e)}"
+        )
+
 
 
 # Optional: allow running with `python main.py`

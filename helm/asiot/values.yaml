@@ -62,6 +62,8 @@ envVars:
   QDRANT_COLLECTION: "documents"
   REDIS_URL: "redis://redis-master:6379/0"
   EMBEDDING_DIM: "384"
+  INFERENCE_URL: "http://inference-release:8080"
+  TEST: "test"
 
 configMap:
   enabled: true

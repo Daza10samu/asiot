@@ -2,3 +2,83 @@ GET https://asiot.k8s.labs.itmo.loc/search?query=serde&limit=3
 
 ###
 POST https://asiot.k8s.labs.itmo.loc/cache/flush
+
+###
+# Get model information and feature descriptions
+GET https://asiot.k8s.labs.itmo.loc/predict/info
+
+###
+# Predict wine cultivar - Human-readable format (RECOMMENDED)
+POST https://asiot.k8s.labs.itmo.loc/predict
+Content-Type: application/json
+
+{
+  "alcohol": 13.2,
+  "malic_acid": 2.77,
+  "ash": 2.51,
+  "alcalinity_of_ash": 18.5,
+  "magnesium": 96.0,
+  "total_phenols": 1.9,
+  "flavanoids": 0.58,
+  "nonflavanoid_phenols": 0.63,
+  "proanthocyanins": 1.14,
+  "color_intensity": 7.5,
+  "hue": 0.72,
+  "od280_od315_of_diluted_wines": 1.88,
+  "proline": 472.0
+}
+
+###
+# Example 2 - High proline wine (likely Cultivar 2)
+POST https://asiot.k8s.labs.itmo.loc/predict
+Content-Type: application/json
+
+{
+  "alcohol": 12.5,
+  "malic_acid": 1.52,
+  "ash": 2.3,
+  "alcalinity_of_ash": 19.5,
+  "magnesium": 88.0,
+  "total_phenols": 1.48,
+  "flavanoids": 0.66,
+  "nonflavanoid_phenols": 0.40,
+  "proanthocyanins": 0.97,
+  "color_intensity": 10.2,
+  "hue": 0.98,
+  "od280_od315_of_diluted_wines": 2.12,
+  "proline": 1680.0
+}
+
+###
+# Example 3 - High alcohol wine (likely Cultivar 0)
+POST https://asiot.k8s.labs.itmo.loc/predict
+Content-Type: application/json
+
+{
+  "alcohol": 14.5,
+  "malic_acid": 1.73,
+  "ash": 2.39,
+  "alcalinity_of_ash": 11.4,
+  "magnesium": 91.0,
+  "total_phenols": 3.1,
+  "flavanoids": 3.69,
+  "nonflavanoid_phenols": 0.43,
+  "proanthocyanins": 2.81,
+  "color_intensity": 5.4,
+  "hue": 1.25,
+  "od280_od315_of_diluted_wines": 2.73,
+  "proline": 1150.0
+}
+
+###
+# Legacy format (still supported for backward compatibility)
+POST https://asiot.k8s.labs.itmo.loc/predict
+Content-Type: application/json
+
+{
+  "instances": [
+    [13.2, 2.77, 2.51, 18.5, 96.0, 1.9, 0.58, 0.63, 1.14, 7.5, 0.72, 1.88, 472.0]
+  ]
+}
+
+###
