@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.so
+
+# Envs
+.env
+.venv/
+venv/
+ENV/
+
+# Tests and tooling
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# VCS / IDE
+.git/
+.gitignore
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+
+# Project extras not needed in image
+README.md
