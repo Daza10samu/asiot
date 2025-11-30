@@ -1,0 +1,71 @@
+global:
+  domain: argocd.k8s.labs.itmo.loc
+
+configs:
+  params:
+    server.insecure: true  # replaces old server.extraArgs --insecure in new charts [web:22]
+
+controller:
+  replicas: 1
+
+dex:
+  enabled: false
+
+redis:
+  enabled: true
+
+repoServer:
+  replicas: 1
+
+applicationSet:
+  enabled: true
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      additionalLabels:
+        release: prometheus-stack
+      interval: 30s
+
+notifications:
+  enabled: false
+
+server:
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      additionalLabels:
+        release: prometheus-stack
+  replicas: 1
+
+  # Do NOT enable internal TLS; we run HTTP on 8080 [web:10][web:22]
+  extraArgs: []   # keep empty; use configs.params.server.insecure instead [web:22]
+
+  service:
+    type: ClusterIP
+    # Expose HTTP service to Ingress
+    port: 80
+    targetPort: 8080
+
+  ingress:
+    enabled: true
+    ingressClassName: ""   # MicroK8s default nginx [web:7]
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"   # backend is plain HTTP [web:10]
+      nginx.ingress.kubernetes.io/enable-cors: "true"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+      nginx.ingress.kubernetes.io/configuration-snippet: |
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port 443;
+        grpc_read_timeout 3600s;
+        grpc_send_timeout 3600s;
+    hosts:
+      - argocd.k8s.labs.itmo.loc
+    tls:
+      - secretName: labs-tls
+        hosts:
+          - argocd.k8s.labs.itmo.loc
