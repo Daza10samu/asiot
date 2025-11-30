@@ -1,0 +1,75 @@
+expose:
+  type: ingress
+  tls:
+    enabled: true
+    certSource: secret
+    secret:
+      secretName: "labs-itmo-cert"
+  ingress:
+    hosts:
+      core: harbor.k8s.labs.itmo.loc
+    className: "public"
+    annotations:
+      ingress.kubernetes.io/ssl-redirect: "true"
+      ingress.kubernetes.io/proxy-body-size: "0"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+
+externalURL: https://harbor.k8s.labs.itmo.loc
+
+metrics:
+  enabled: true
+  core:
+    path: /metrics
+    port: 8001
+  registry:
+    path: /metrics
+    port: 8001
+  jobservice:
+    path: /metrics
+    port: 8001
+  exporter:
+    path: /metrics
+    port: 8001
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: prometheus-stack
+    interval: 30s
+
+persistence:
+  enabled: true
+  resourcePolicy: "keep"
+  persistentVolumeClaim:
+    registry:
+      storageClass: "microk8s-hostpath"
+      accessMode: ReadWriteOnce
+      size: 5Gi
+    chartmuseum:
+      storageClass: "microk8s-hostpath"
+      accessMode: ReadWriteOnce
+      size: 5Gi
+    jobservice:
+      jobLog:
+        storageClass: "microk8s-hostpath"
+        accessMode: ReadWriteOnce
+        size: 1Gi
+    database:
+      storageClass: "microk8s-hostpath"
+      accessMode: ReadWriteOnce
+      size: 1Gi
+    redis:
+      storageClass: "microk8s-hostpath"
+      accessMode: ReadWriteOnce
+      size: 1Gi
+    trivy:
+      storageClass: "microk8s-hostpath"
+      accessMode: ReadWriteOnce
+      size: 5Gi
+
+harborAdminPassword: "Harbor12345"
+
+# Отключаем chartmuseum если не нужен
+chartmuseum:
+  enabled: false
+
