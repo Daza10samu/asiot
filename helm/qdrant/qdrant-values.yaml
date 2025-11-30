@@ -1,0 +1,32 @@
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 6333
+      targetPort: 6333
+      protocol: TCP
+      checksEnabled: true
+
+ingress:
+  enabled: true
+  ingressClassName: "public"
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+  hosts:
+    - host: qdrant.k8s.labs.itmo.loc
+      paths:
+        - path: /
+          pathType: Prefix
+          servicePort: 6333
+  tls:
+    - hosts:
+        - qdrant.k8s.labs.itmo.loc
+      secretName: labs-itmo-cert
+
+persistence:
+  size: 2Gi
+  storageClassName: microk8s-hostpath
+
