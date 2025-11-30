@@ -1,0 +1,77 @@
+# Default values for inference Helm chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: harbor.k8s.labs.itmo.loc/public/inference-service
+  tag: "latest"
+  pullPolicy: Always
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+probes:
+  liveness:
+    path: /health
+    initialDelaySeconds: 10
+    periodSeconds: 15
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    path: /health
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+resources: {}
+  # limits:
+  #   cpu: 500m
+  #   memory: 512Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+podAnnotations: {}
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+
+envVars:
+  APP_PORT: "8080"
+  MLFLOW_TRACKING_URI: "https://mlflow.labs.itmo.loc"
+  MODEL_URI: "models:/wine-classifier-rf/Staging"
+  MLFLOW_TRACKING_INSECURE_TLS: "true"
+
+configMap:
+  enabled: true
+
+serviceAccount:
+  create: false
+  annotations: {}
+  name: ""
+
+ingress:
+  enabled: true
+  className: "public"
+  annotations: {}
+  host: inference.k8s.labs.itmo.loc
+  path: /
+  tls:
+    enabled: true
+    secretName: "labs-tls"

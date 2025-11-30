@@ -1,0 +1,18 @@
+1. Get the application URL:
+
+{{- if .Values.ingress.enabled }}
+  Ingress enabled:
+  http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ .Values.ingress.host }}{{ .Values.ingress.path }}
+{{- else }}
+  Service cluster IP and port:
+  export SERVICE_IP=$(kubectl get svc {{ include "inference.fullname" . }} -o jsonpath='{.spec.clusterIP}')
+  echo "http://$SERVICE_IP:{{ .Values.service.port }}/health"
+
+  Or, using port-forward:
+  kubectl port-forward svc/{{ include "inference.fullname" . }} 8080:{{ .Values.service.port }}
+  curl http://127.0.0.1:8080/health
+{{- end }}
+
+2. Verify the Pod is ready:
+  kubectl get deploy {{ include "inference.fullname" . }} -o wide
+  kubectl get pods -l app.kubernetes.io/instance={{ .Release.Name }},app.kubernetes.io/name={{ include "inference.name" . }}

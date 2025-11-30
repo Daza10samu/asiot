@@ -1,0 +1,22 @@
+apiVersion: v2
+name: inference
+description: Helm chart for deploying the Inference Service (Gunicorn + Flask) loading model from MLflow
+
+type: application
+
+version: 0.1.0
+appVersion: "1.0.0"
+
+keywords:
+  - inference
+  - mlflow
+  - flask
+  - gunicorn
+  - harbor
+
+home: https://harbor.k8s.labs.itmo.loc
+sources:
+  - https://harbor.k8s.labs.itmo.loc/public/inference
+maintainers:
+  - name: asiot-team
+    email: devnull@example.com
